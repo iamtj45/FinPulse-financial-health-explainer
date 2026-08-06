@@ -1,69 +1,58 @@
-import Image from "next/image";
+import Link from "next/link";
 import styles from "./page.module.css";
+import { goToTicker } from "./actions";
 
-export default function Home() {
+const EXAMPLES = ["AAPL", "MSFT", "KO", "JPM"];
+
+export default async function Home({ searchParams }: PageProps<"/">) {
+  const params = await searchParams;
+  const errorParam = params.error;
+  const error = Array.isArray(errorParam) ? errorParam[0] : errorParam;
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>
-            To get started, edit the{" "}
-            <code className={styles.code}>page.tsx</code> file.
-          </h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="page-shell">
+      <div className={styles.hero}>
+        <h1>FinPulse</h1>
+        <p className={styles.tagline}>
+          A company financial health explainer. Enter a US-listed ticker to
+          get standard financial ratios computed from real filings, a
+          three-year trend, and a plain-English explanation of what each
+          number means.
+        </p>
+
+        <form action={goToTicker} className={styles.form}>
+          <input
+            className={styles.input}
+            type="text"
+            name="ticker"
+            placeholder="e.g. AAPL"
+            maxLength={10}
+            autoComplete="off"
+            autoFocus
+            aria-label="Ticker symbol"
+          />
+          <button className={styles.submit} type="submit">
+            Analyze
+          </button>
+        </form>
+        {error && <p className={styles.error}>{error}</p>}
+
+        <p className={styles.examples}>
+          Try:{" "}
+          {EXAMPLES.map((t) => (
+            <Link key={t} href={`/${t}`}>
+              {t}
+            </Link>
+          ))}
+        </p>
+
+        <p className={styles.scope}>
+          US-listed companies, annual data, last 3-4 fiscal years. This tool
+          computes ratios and explains them — it does not predict prices or
+          recommend trades.
+        </p>
+      </div>
+      <p className="disclaimer">Educational tool. Not investment advice.</p>
     </div>
   );
 }

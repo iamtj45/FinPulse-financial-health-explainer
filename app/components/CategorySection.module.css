@@ -1,0 +1,16 @@
+.section {
+  margin-bottom: 2rem;
+  scroll-margin-top: 1rem;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.heading h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}

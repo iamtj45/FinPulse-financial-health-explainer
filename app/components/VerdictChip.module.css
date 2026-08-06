@@ -1,0 +1,30 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.strong {
+  color: var(--strong);
+  background: var(--strong-bg);
+}
+
+.adequate {
+  color: var(--adequate);
+  background: var(--adequate-bg);
+}
+
+.weak {
+  color: var(--weak);
+  background: var(--weak-bg);
+}
+
+.unavailable {
+  color: var(--unavailable);
+  background: var(--unavailable-bg);
+}
