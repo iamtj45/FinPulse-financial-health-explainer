@@ -6,12 +6,6 @@ computed from real filings, a multi-year trend, and a plain-English
 explanation of what each number means and whether it looks healthy for that
 company's sector.
 
-*(Screenshot: run `npm run dev` and open `/AAPL` — not yet captured for this
-README.)*
-
-**Live demo:** not yet deployed. See [Run locally](#run-locally) below, or
-[Deploy to Vercel](#deploying) once API keys are configured.
-
 ## How it works
 
 The core design principle: **numbers are computed deterministically, the
