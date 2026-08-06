@@ -1,7 +1,7 @@
 # FinPulse
 
 A company financial health explainer. Enter a US-listed ticker and get the
-standard financial ratios — liquidity, profitability, leverage, cash —
+standard financial ratios liquidity, profitability, leverage, cash
 computed from real filings, a multi-year trend, and a plain-English
 explanation of what each number means and whether it looks healthy for that
 company's sector.
