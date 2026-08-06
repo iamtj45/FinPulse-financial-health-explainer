@@ -5,7 +5,7 @@ standard financial ratios liquidity, profitability, leverage, cash
 computed from real filings, a multi-year trend, and a plain-English
 explanation of what each number means and whether it looks healthy for that
 company's sector.
-![FinPulse showing AAPL financial ratios](screenshot11.png)
+![FinPulse showing AAPL financial ratios](Screenshot11.png)
 ## How it works
 
 The core design principle: **numbers are computed deterministically, the
