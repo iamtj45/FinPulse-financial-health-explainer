@@ -16,7 +16,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <p className={styles.tagline}>
           A company financial health explainer. Enter a US-listed ticker to
           get standard financial ratios computed from real filings, a
-          three-year trend, and a plain-English explanation of what each
+          three-year trend, a plain-English explanation of what each
           number means.
         </p>
 
@@ -48,7 +48,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
         <p className={styles.scope}>
           US-listed companies, annual data, last 3-4 fiscal years. This tool
-          computes ratios and explains them — it does not predict prices or
+          computes ratios and explains them it does not predict prices or
           recommend trades.
         </p>
       </div>
