@@ -21,13 +21,20 @@ export function unavailableReason(result: Pick<RatioResult, "latestStatus" | "ye
   const latest = result.years[result.years.length - 1];
   if (!latest) return "no data available";
   if (result.latestStatus === "not_meaningful") {
-    return "not meaningful — negative equity";
+    return "negative equity";
   }
-  const missing = Object.entries(latest.inputs)
-    .filter(([, v]) => v === null)
-    .map(([k]) => INPUT_LABELS[k] ?? k);
-  if (missing.length === 0) return "not reported";
-  return `${missing.join(", ")} not reported`;
+  const entries = Object.entries(latest.inputs);
+  const label = (k: string) => INPUT_LABELS[k] ?? k;
+
+  const missing = entries.filter(([, v]) => v === null).map(([k]) => label(k));
+  if (missing.length > 0) return `${missing.join(", ")} not reported`;
+
+  // Every input was reported, so the only way the value is still null is a
+  // zero denominator. Saying "not reported" here would be false.
+  const zeros = entries.filter(([, v]) => v === 0).map(([k]) => label(k));
+  if (zeros.length > 0) return `${zeros.join(", ")} reported as zero`;
+
+  return "not reported";
 }
 
 export function formatRatioValue(result: Pick<RatioResult, "unit" | "latestValue">): string {

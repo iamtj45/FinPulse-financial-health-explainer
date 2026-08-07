@@ -14,14 +14,20 @@ export function RatioRow({
   ratio: RatioResult;
   explanation?: string | "pending";
 }) {
-  const isAvailable = ratio.latestStatus === "ok";
+  const hasValue = ratio.latestStatus === "ok";
+
+  // "Not meaningful" is a distinct state from "not reported": the inputs were
+  // filed, the arithmetic is just misleading (§5). Saying "not reported"
+  // there would misdescribe the company's disclosure.
+  const unavailableLabel =
+    ratio.latestStatus === "not_meaningful" ? "Not meaningful" : "Not reported";
 
   return (
     <div className={styles.row}>
       <div className={styles.top}>
         <span className={styles.name}>{ratio.label}</span>
 
-        {isAvailable ? (
+        {hasValue ? (
           <>
             <span className={styles.value}>{formatRatioValue(ratio)}</span>
             <Sparkline years={ratio.years} />
@@ -29,12 +35,13 @@ export function RatioRow({
           </>
         ) : (
           <span className={styles.unavailable}>
-            Not reported <span className={styles.reason}>({unavailableReason(ratio)})</span>
+            {unavailableLabel}{" "}
+            <span className={styles.reason}>({unavailableReason(ratio)})</span>
           </span>
         )}
       </div>
 
-      {isAvailable && explanation && (
+      {explanation && (
         <p className={styles.explanation}>
           {explanation === "pending" ? (
             <span className={styles.pending}>Generating explanation…</span>

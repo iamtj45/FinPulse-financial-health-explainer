@@ -1,7 +1,7 @@
 import { complete } from "./llm";
 import { retrieveNotes, retrieveNotesBatch, type KBNote } from "./retrieve";
 import { RATIO_META, type Category, type RatioId, type RatioResult } from "./ratios";
-import { formatRatioValue } from "./format";
+import { formatRatioValue, unavailableReason } from "./format";
 
 export interface ExplainCategoryInput {
   companyName: string;
@@ -42,6 +42,9 @@ export function extractNumbers(text: string): number[] {
 export function buildAllowedNumbers(ratios: RatioResult[], notesText: string): Set<number> {
   const allowed = new Set<number>();
   for (const r of ratios) {
+    // A not_meaningful ratio is named in the prompt without any number, so
+    // an older ok year of it must not become quotable.
+    if (r.latestStatus === "not_meaningful") continue;
     const latest = latestOkYear(r);
     if (latest) {
       allowed.add(latest.fiscalYear);
@@ -71,6 +74,9 @@ function buildPrompt(
 
   const ratioLines = input.ratios
     .map((r) => {
+      if (r.latestStatus === "not_meaningful") {
+        return `- ${r.label}: not_meaningful (${unavailableReason(r)}) — no value computed`;
+      }
       const latest = latestOkYear(r);
       const yearLabel = latest ? `${formatRatioValue(r)} (${latest.fiscalYear})` : formatRatioValue(r);
       return `- ${r.label}: ${yearLabel}, trend: ${r.trend}`;
@@ -106,6 +112,7 @@ Rules:
 - If the reference notes mention a sector exception that applies here, say so.
 - Do not give investment advice or suggest buying or selling.
 - If a ratio's trend is insufficient_data, say there isn't enough history yet rather than describing a trend.
+- If a ratio is marked not_meaningful, explain why the arithmetic is misleading here rather than interpreting it, and do not state a value for it.
 
 Respond with ONLY a JSON object mapping each ratio id to its explanation
 string — no markdown code fences, no commentary outside the JSON. Keys must
@@ -136,13 +143,16 @@ function parseJsonResponse(raw: string): Record<string, unknown> | null {
  * reproducible generation, not a failure, so it's returned normally (and
  * is safe to cache) even if it leaves some ratios unexplained. */
 export async function explainCategory(input: ExplainCategoryInput): Promise<Explanations> {
-  const explainable = input.ratios.filter((r) => r.latestStatus === "ok");
+  const explainable = input.ratios.filter(
+    (r) => r.latestStatus === "ok" || r.latestStatus === "not_meaningful",
+  );
   if (explainable.length === 0) return {};
 
   const contexts = explainable.map((r) => ({
     ratioId: r.id,
     ratioLabel: r.label,
-    formattedValue: formatRatioValue(r),
+    formattedValue:
+      r.latestStatus === "not_meaningful" ? unavailableReason(r) : formatRatioValue(r),
     trend: r.trend,
     category: input.category,
     sector: input.sector,

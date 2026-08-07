@@ -27,7 +27,9 @@ export function CategorySection({
   sector: string | null;
 }) {
   const pending = Object.fromEntries(
-    ratios.filter((r) => r.latestStatus === "ok").map((r) => [r.id, "pending" as const]),
+    ratios
+      .filter((r) => r.latestStatus === "ok" || r.latestStatus === "not_meaningful")
+      .map((r) => [r.id, "pending" as const]),
   );
 
   return (
