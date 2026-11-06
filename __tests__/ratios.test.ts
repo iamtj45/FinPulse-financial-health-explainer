@@ -216,6 +216,48 @@ describe("trend classification", () => {
   });
 });
 
+/** Every test above uses current_ratio, where a bigger number is a better
+ * number — which is why a rising debt load reading as "improving" went
+ * unnoticed. Debt-to-equity is the one ratio where the direction flips. */
+describe("trend direction respects which way is healthy", () => {
+  const risingDebt = [
+    year({ fiscalYear: 2022, totalLiabilities: 400_000, totalEquity: 1_000_000 }), // 0.40
+    year({ fiscalYear: 2023, totalLiabilities: 1_800_000, totalEquity: 1_000_000 }), // 1.80
+  ];
+  const fallingDebt = [
+    year({ fiscalYear: 2022, totalLiabilities: 1_800_000, totalEquity: 1_000_000 }), // 1.80
+    year({ fiscalYear: 2023, totalLiabilities: 400_000, totalEquity: 1_000_000 }), // 0.40
+  ];
+
+  it("calls rising debt-to-equity 'declining', not 'improving'", () => {
+    const d = find(computeRatios(risingDebt), "debt_to_equity");
+    expect(d.latestValue).toBe(1.8);
+    expect(d.trend).toBe("declining");
+  });
+
+  it("calls falling debt-to-equity 'improving'", () => {
+    const d = find(computeRatios(fallingDebt), "debt_to_equity");
+    expect(d.latestValue).toBe(0.4);
+    expect(d.trend).toBe("improving");
+  });
+
+  it("leaves every other ratio reading bigger-is-better", () => {
+    const results = computeRatios([
+      year({ fiscalYear: 2022, totalEquity: 400_000, totalAssets: 1_000_000 }), // equity ratio 40%
+      year({ fiscalYear: 2023, totalEquity: 600_000, totalAssets: 1_000_000 }), // 60%
+    ]);
+    expect(find(results, "equity_ratio").trend).toBe("improving");
+  });
+
+  it("still reports 'stable' for debt-to-equity movement under 5%", () => {
+    const results = computeRatios([
+      year({ fiscalYear: 2022, totalLiabilities: 1_000_000, totalEquity: 1_000_000 }), // 1.00
+      year({ fiscalYear: 2023, totalLiabilities: 1_020_000, totalEquity: 1_000_000 }), // 1.02
+    ]);
+    expect(find(results, "debt_to_equity").trend).toBe("stable");
+  });
+});
+
 describe("groupByCategory", () => {
   it("buckets all 11 ratios into their four categories", () => {
     const results = computeRatios([HEALTHY_YEAR]);

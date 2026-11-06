@@ -39,9 +39,22 @@ export function extractNumbers(text: string): number[] {
 /** The only numbers a generated explanation is allowed to contain: the
  * ratio values and fiscal years actually shown to the model, plus any
  * number quoted in the retrieved notes it was given as reference (§8). */
+/** The units ratio-language is written in, not financial claims: "$7.20 of
+ * debt for every $1 of equity", "$0.71 of every revenue dollar", "out of
+ * 100". The guard threw away a correct debt-to-equity explanation over the
+ * "1" in "every $1". Nothing can be fabricated with these. */
+const RHETORICAL_CONSTANTS = [0, 1, 100];
+
 export function buildAllowedNumbers(ratios: RatioResult[], notesText: string): Set<number> {
-  const allowed = new Set<number>();
+  const allowed = new Set<number>(RHETORICAL_CONSTANTS);
   for (const r of ratios) {
+    // Every fiscal year in the report is quotable, not just the latest. The
+    // prompt states a trend and asks what it suggests, which invites "from
+    // 2022 to 2025" — and with only 2025 allowed, that otherwise-correct
+    // sentence was thrown away. A year is a date, not a financial claim,
+    // so admitting the ones this report covers costs the guard nothing.
+    for (const y of r.years) allowed.add(y.fiscalYear);
+
     // A not_meaningful ratio is named in the prompt without any number, so
     // an older ok year of it must not become quotable.
     if (r.latestStatus === "not_meaningful") continue;
@@ -49,6 +62,21 @@ export function buildAllowedNumbers(ratios: RatioResult[], notesText: string): S
     if (latest) {
       allowed.add(latest.fiscalYear);
       allowed.add(latest.value);
+
+      // The prompt shows the FORMATTED value, so that is the form the model
+      // reads back. Free cash flow reaches it as "$108.8B" and is stored
+      // here as 108800000000, and 108.8 matches neither that nor any fiscal
+      // year — so the guard called every currency explanation a fabrication
+      // and dropped it, every time. Admit the formatted digits too.
+      for (const n of extractNumbers(formatRatioValue(r))) allowed.add(n);
+
+      // 0.85 and "85%" are one number wearing two units, not two claims.
+      // The model restates a ratio as a percentage constantly — "an
+      // operating cash ratio of 0.85 ... covers 85% of current
+      // liabilities" — and the guard was calling that second figure a
+      // fabrication and deleting the whole explanation over it.
+      if (r.unit === "ratio") allowed.add(latest.value * 100);
+      else if (r.unit === "percent") allowed.add(latest.value / 100);
     }
   }
   for (const n of extractNumbers(notesText)) allowed.add(n);
@@ -57,12 +85,40 @@ export function buildAllowedNumbers(ratios: RatioResult[], notesText: string): S
 
 const NUMBER_GUARD_TOLERANCE = 0.05;
 
-export function passesNumberGuard(text: string, allowed: Set<number>): boolean {
+/** The first number in `text` that wasn't among those given to the model,
+ * or null if every number checks out. Returning the offending value rather
+ * than a bare boolean is what lets the dropped-explanation warning say what
+ * was actually wrong — "failed number guard" alone gives you nothing to act
+ * on when a ratio silently loses its commentary. */
+/** Whether a number the model wrote is one it was given.
+ *
+ * Exact match within a hair, or the given number read to fewer decimal
+ * places. Models round constantly for readability — an operating margin of
+ * 12.7% becomes "roughly 13%", a net margin of 8.6% becomes "about 9 cents
+ * on the dollar" — and treating that as invention was the single biggest
+ * cause of ratios rendering with no commentary at all. Rounding restates a
+ * number the model was handed; it never introduces a new one, which is the
+ * only thing this guard exists to catch.
+ *
+ * The rounding is applied to the ALLOWED value, at the precision the model
+ * actually wrote. So 12.7 matches "13", but 2025 never matches "2015" and
+ * 1.84 never matches "4.2" — a wrong number stays wrong at every precision. */
+function matchesAllowed(written: number, allowed: number): boolean {
+  if (Math.abs(allowed - written) < NUMBER_GUARD_TOLERANCE) return true;
+  const decimals = (String(written).split(".")[1] ?? "").length;
+  return Number(allowed.toFixed(decimals)) === written;
+}
+
+export function findDisallowedNumber(text: string, allowed: Set<number>): number | null {
   for (const n of extractNumbers(text)) {
-    const ok = [...allowed].some((a) => Math.abs(a - n) < NUMBER_GUARD_TOLERANCE);
-    if (!ok) return false;
+    const ok = [...allowed].some((a) => matchesAllowed(n, a));
+    if (!ok) return n;
   }
-  return true;
+  return null;
+}
+
+export function passesNumberGuard(text: string, allowed: Set<number>): boolean {
+  return findDisallowedNumber(text, allowed) === null;
 }
 
 function buildPrompt(
@@ -180,8 +236,12 @@ export async function explainCategory(input: ExplainCategoryInput): Promise<Expl
   for (const r of explainable) {
     const text = parsed[r.id];
     if (typeof text !== "string" || !text.trim()) continue;
-    if (!passesNumberGuard(text, allowed)) {
-      console.warn(`explainCategory: dropped explanation for ${r.id} — failed number guard`);
+    const offending = findDisallowedNumber(text, allowed);
+    if (offending !== null) {
+      console.warn(
+        `explainCategory: dropped explanation for ${r.id} — number guard rejected ${offending}, ` +
+          `which is not among the numbers the model was given. Text: ${text.slice(0, 200)}`,
+      );
       continue;
     }
     result[r.id] = text.trim();

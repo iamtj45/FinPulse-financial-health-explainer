@@ -1,4 +1,11 @@
+/* Light is the default. Dark arrives two ways below: from the operating
+ * system, or from the visitor's own choice via the toggle, which writes
+ * data-theme on <html>. The two dark blocks are deliberate duplicates —
+ * CSS cannot share one declaration list between a media query and a plain
+ * selector, so edit them together. */
 :root {
+  color-scheme: light;
+
   --bg: #ffffff;
   --bg-raised: #f7f7f8;
   --border: #e4e4e7;
@@ -17,8 +24,12 @@
   --unavailable-bg: #f0f0f2;
 }
 
+/* Dark because the operating system asks for it — unless the visitor has
+ * explicitly chosen light, which must win over the system preference. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
     --bg: #101012;
     --bg-raised: #18181b;
     --border: #2b2b30;
@@ -36,10 +47,28 @@
     --unavailable: #9a9aa2;
     --unavailable-bg: #202024;
   }
+}
 
-  html {
-    color-scheme: dark;
-  }
+/* Dark because the visitor chose it, whatever the system says. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #101012;
+  --bg-raised: #18181b;
+  --border: #2b2b30;
+  --text: #f2f2f3;
+  --text-muted: #9a9aa2;
+  --accent: #7d93f2;
+  --accent-contrast: #0a0a0a;
+
+  --strong: #4ade80;
+  --strong-bg: #10331d;
+  --adequate: #f2b544;
+  --adequate-bg: #3a2c0c;
+  --weak: #f37066;
+  --weak-bg: #3a1712;
+  --unavailable: #9a9aa2;
+  --unavailable-bg: #202024;
 }
 
 html {

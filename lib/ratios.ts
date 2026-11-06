@@ -58,6 +58,11 @@ interface RatioDef {
   label: string;
   category: Category;
   unit: Unit;
+  /** Whether a bigger number is a healthier number. Defaults to true.
+   * Only debt-to-equity sets this false: it is the one ratio here where a
+   * rise is a deterioration, and correspondingly the only one whose health
+   * bands in lib/health.ts run strong -> weak instead of weak -> strong. */
+  higherIsBetter?: boolean;
   /** Computes one year's value. Returns status: 'not_meaningful' when the
    * math is technically possible but financially misleading (§5) — e.g.
    * dividing by negative equity. */
@@ -160,6 +165,9 @@ const RATIO_DEFS: RatioDef[] = [
     label: "Debt to equity",
     category: "leverage",
     unit: "ratio",
+    // More liabilities per unit of equity is more fixed obligation
+    // regardless of earnings, so a rise here is a deterioration.
+    higherIsBetter: false,
     compute: (y) => {
       const inputs = { totalLiabilities: y.totalLiabilities, totalEquity: y.totalEquity };
       if (y.totalEquity !== null && y.totalEquity <= 0) {
@@ -238,22 +246,33 @@ const RATIO_DEFS: RatioDef[] = [
   },
 ];
 
-/** improving/declining requires >5% movement between the earliest and latest
- * available (status 'ok') year; smaller movement reads as noise, not trend. */
-function computeTrend(years: RatioYearValue[]): Trend {
+/** "improving" means the company's position got healthier, which is not the
+ * same thing as the number getting bigger. This used to equate the two, so
+ * a company whose debt-to-equity climbed from 0.4 to 1.8 — a large increase
+ * in leverage — was labelled "improving" on screen, and the same word went
+ * into the prompt, so the generated prose repeated it. Each ratio now
+ * declares which direction is the healthy one and movement is read against
+ * that.
+ *
+ * improving/declining still requires >5% movement between the earliest and
+ * latest available (status 'ok') year; smaller movement reads as noise. */
+function computeTrend(years: RatioYearValue[], higherIsBetter: boolean): Trend {
   const ok = years.filter((y) => y.status === "ok" && y.value !== null);
   if (ok.length < 2) return "insufficient_data";
   const first = ok[0].value as number;
   const last = ok[ok.length - 1].value as number;
 
+  let direction: "up" | "down" | "flat";
   if (first === 0) {
-    if (last === 0) return "stable";
-    return last > 0 ? "improving" : "declining";
+    direction = last === 0 ? "flat" : last > 0 ? "up" : "down";
+  } else {
+    const pctChange = ((last - first) / Math.abs(first)) * 100;
+    direction = pctChange > 5 ? "up" : pctChange < -5 ? "down" : "flat";
   }
-  const pctChange = ((last - first) / Math.abs(first)) * 100;
-  if (pctChange > 5) return "improving";
-  if (pctChange < -5) return "declining";
-  return "stable";
+
+  if (direction === "flat") return "stable";
+  const movedTheHealthyWay = direction === "up" ? higherIsBetter : !higherIsBetter;
+  return movedTheHealthyWay ? "improving" : "declining";
 }
 
 /** Computes every ratio in §5 across all available fiscal years.
@@ -275,7 +294,7 @@ export function computeRatios(years: StatementYear[]): RatioResult[] {
       years: yearValues,
       latestValue: latest?.value ?? null,
       latestStatus: latest?.status ?? "unavailable",
-      trend: computeTrend(yearValues),
+      trend: computeTrend(yearValues, def.higherIsBetter ?? true),
     };
   });
 }

@@ -28,12 +28,23 @@ function readConfig(prefix: "LLM" | "LLM_FALLBACK"): ProviderConfig | null {
   return { baseURL, apiKey, model };
 }
 
-/** Only rate-limit and server errors should trigger the fallback — a 4xx
- * like a bad request would just fail identically against the fallback too.
- * A network-level failure (no HTTP response, e.g. DNS/connection refused)
- * has no status code and is treated as retryable as well. */
+/** Rate-limit errors, server errors, and a model the provider no longer
+ * serves should all trigger the fallback.
+ *
+ * That last case is why this list used to be wrong. A retired model answers
+ * 404 (some providers: 400 with code "model_not_found"), neither of which
+ * matched, so the fallback was skipped and the whole feature went down the
+ * day Groq retired llama-3.3-70b-versatile — which is exactly the day a
+ * fallback provider is for.
+ *
+ * Other 4xx (malformed request, bad key) would fail identically against the
+ * fallback, so they are not retried. A network-level failure (no HTTP
+ * response, e.g. DNS/connection refused) has no status code and is treated
+ * as retryable. */
 function isRetryable(err: unknown): boolean {
   if (err instanceof OpenAI.APIError) {
+    if (err.status === 404) return true;
+    if (err.status === 400 && /model/i.test(err.code ?? "")) return true;
     return err.status === 429 || (err.status !== undefined && err.status >= 500);
   }
   return true;

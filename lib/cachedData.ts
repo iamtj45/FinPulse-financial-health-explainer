@@ -60,7 +60,15 @@ export async function getCachedExplanations(input: ExplainCategoryInput): Promis
     // (§lib/explain.ts) — deliberately not cached, so the next request
     // (e.g. once API keys are configured) tries again instead of replaying
     // this failure forever.
-    console.error(`getCachedExplanations failed for category "${input.category}":`, err);
+    // Say plainly what the reader is about to see, because the page gives
+    // no hint: it renders the ratios with no commentary underneath, which
+    // looks identical to "no key configured". That ambiguity is how a
+    // retired model went unnoticed for three months.
+    console.error(
+      `FinPulse: NO EXPLANATIONS for category "${input.category}" — ratios will render bare. ` +
+        `Usually a bad or missing LLM_* setting, or a model the provider has retired. Cause:`,
+      err,
+    );
     return {};
   }
 }

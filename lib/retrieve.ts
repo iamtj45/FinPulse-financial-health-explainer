@@ -112,6 +112,30 @@ function fallbackTagMatch(ctx: RetrievalContext, notes: KBNote[], k: number): KB
     .map((x) => x.note);
 }
 
+/** Guarantees the ratio's own note is among the ones handed to the model.
+ *
+ * Similarity alone does not. On both Apple and Home Depot the gross-margin
+ * note lost its top-k slot to broader sector notes, so the model sourced
+ * its "typical 20-35%" benchmark from memory instead of from the knowledge
+ * base — and the number guard correctly refused a figure it had never been
+ * given, costing that ratio its explanation entirely. The knowledge base
+ * exists so the model argues from it rather than from recall, so the
+ * ratio's own note is pinned and similarity fills the remaining slots.
+ *
+ * The tag-matching fallback already guarantees this through its +3 exact
+ * ratio bonus, which outranks any achievable tag score. */
+export function pinOwnNote(
+  ctx: RetrievalContext,
+  ranked: KBNote[],
+  all: KBNote[],
+  k: number,
+): KBNote[] {
+  if (ranked.some((n) => n.ratio === ctx.ratioId)) return ranked;
+  const own = all.find((n) => n.ratio === ctx.ratioId);
+  if (!own) return ranked;
+  return [own, ...ranked].slice(0, k);
+}
+
 /** Top-k knowledge base notes for every context in one embedding request,
  * instead of one request per ratio. explainCategory has up to ~11 ratios
  * to retrieve for across a report, and issuing that many requests in
@@ -128,19 +152,29 @@ export async function retrieveNotesBatch(
     return contexts.map(() => []);
   }
 
-  assertModelMatches(index);
-
   try {
+    // Inside the try deliberately. This assertion throws, and so does a
+    // missing or invalid EMBED_* config when getEmbedConfig() runs inside
+    // it. Either one used to escape this function and take explainCategory
+    // down with it, so an embedding problem silently cost you every
+    // explanation on the page rather than just the note lookup. Bad
+    // retrieval config should cost retrieval quality, nothing more.
+    assertModelMatches(index);
     const queryVectors = await embed(contexts.map(buildQueryText), "query");
-    return queryVectors.map((queryVector) =>
-      index.notes
+    return queryVectors.map((queryVector, i) => {
+      const ranked = index.notes
         .map((note) => ({ note, score: cosineSimilarity(queryVector, note.vector) }))
         .sort((a, b) => b.score - a.score)
         .slice(0, k)
-        .map((x) => x.note),
-    );
+        .map((x) => x.note);
+      return pinOwnNote(contexts[i], ranked, index.notes, k);
+    });
   } catch (err) {
-    console.error("Semantic retrieval failed, falling back to tag matching:", err);
+    console.error(
+      "Semantic retrieval unavailable — falling back to tag matching. " +
+        "Explanations will still generate; note selection is just weaker. Cause:",
+      err,
+    );
     return contexts.map((ctx) => fallbackTagMatch(ctx, index.notes, k));
   }
 }
