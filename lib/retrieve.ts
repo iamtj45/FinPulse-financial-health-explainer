@@ -178,11 +178,3 @@ export async function retrieveNotesBatch(
     return contexts.map((ctx) => fallbackTagMatch(ctx, index.notes, k));
   }
 }
-
-/** Single-context convenience wrapper — used where there's only one ratio
- * to retrieve for (the MCP server's explain_ratio tool), so batching
- * wouldn't help. */
-export async function retrieveNotes(ctx: RetrievalContext, k = 3): Promise<KBNote[]> {
-  const [notes] = await retrieveNotesBatch([ctx], k);
-  return notes;
-}

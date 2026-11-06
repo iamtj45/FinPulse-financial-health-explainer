@@ -1,6 +1,6 @@
 import { complete } from "./llm";
-import { retrieveNotes, retrieveNotesBatch, type KBNote } from "./retrieve";
-import { RATIO_META, type Category, type RatioId, type RatioResult } from "./ratios";
+import { retrieveNotesBatch, type KBNote } from "./retrieve";
+import type { Category, RatioResult } from "./ratios";
 import { formatRatioValue, unavailableReason } from "./format";
 
 export interface ExplainCategoryInput {
@@ -249,60 +249,3 @@ export async function explainCategory(input: ExplainCategoryInput): Promise<Expl
   return result;
 }
 
-export interface ExplainSingleRatioInput {
-  ratioId: RatioId;
-  value: number;
-  sector: string | null;
-}
-
-/** Ad-hoc single-ratio explanation for the MCP `explain_ratio` tool (§11a).
- * Unlike explainCategory, there's no multi-year trend or company behind
- * this — just a bare ratio name, value, and sector — so it isn't batched
- * and asks for plain text back instead of JSON. Throws on generation
- * failure or a number-guard rejection; the MCP tool surfaces that directly
- * rather than silently returning nothing. */
-export async function explainSingleRatio(input: ExplainSingleRatioInput): Promise<string> {
-  const meta = RATIO_META[input.ratioId];
-  const formattedValue = formatRatioValue({ unit: meta.unit, latestValue: input.value });
-
-  const notes = await retrieveNotes({
-    ratioId: input.ratioId,
-    ratioLabel: meta.label,
-    formattedValue,
-    trend: "insufficient_data",
-    category: meta.category,
-    sector: input.sector,
-  });
-  const notesText = notes.map((n) => `[${n.id}] ${n.text}`).join("\n\n");
-
-  const prompt = `SECTOR: ${input.sector ?? "not specified"}
-
-RATIO: ${meta.label}: ${formattedValue}
-
-REFERENCE NOTES:
-${notesText || "(none retrieved)"}
-
-Write 2-3 sentences explaining what this ratio means and whether this level
-is healthy given the sector.
-
-Rules:
-- Use only the number given above (${formattedValue}). Do not calculate anything.
-- If the reference notes mention a sector exception that applies here, say so.
-- Do not give investment advice or suggest buying or selling.
-- Respond with plain text only — no JSON, no markdown.`;
-
-  const text = await complete({
-    system:
-      "You explain company financial ratios to a non-expert. Never state a different number than the one given.",
-    prompt,
-    temperature: 0.3,
-  });
-
-  const allowed = new Set<number>([input.value, ...extractNumbers(notesText)]);
-  if (!passesNumberGuard(text, allowed)) {
-    throw new Error(
-      "Generated explanation failed the number guard (it introduced a number not in the given context) and was discarded.",
-    );
-  }
-  return text.trim();
-}

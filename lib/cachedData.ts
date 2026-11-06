@@ -1,8 +1,8 @@
 /**
  * Next.js-specific caching wrappers (§9). Kept out of lib/yahoo.ts and
- * lib/explain.ts on purpose: those stay framework-agnostic so the MCP
- * server (mcp/server.ts) can call the same business logic directly,
- * without depending on Next's request/render context that `unstable_cache`
+ * lib/explain.ts on purpose: those stay framework-agnostic, so the fetch /
+ * compute / explain logic can be called from a plain Node process without
+ * dragging in Next's request/render context, which `unstable_cache`
  * requires. Only the app layer (pages, route handlers) imports this file.
  */
 import { createHash } from "node:crypto";

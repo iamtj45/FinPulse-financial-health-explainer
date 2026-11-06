@@ -331,11 +331,3 @@ export function groupByCategory(results: RatioResult[]): Record<Category, RatioR
 }
 
 export const RATIO_IDS: RatioId[] = RATIO_DEFS.map((d) => d.id);
-
-/** Static label/category/unit lookup by ratio id — used where a ratio is
- * named without a full computed StatementYear behind it, e.g. the MCP
- * server's single-ratio explain tool. */
-export const RATIO_META: Record<RatioId, { label: string; category: Category; unit: Unit }> =
-  Object.fromEntries(
-    RATIO_DEFS.map((d) => [d.id, { label: d.label, category: d.category, unit: d.unit }]),
-  ) as Record<RatioId, { label: string; category: Category; unit: Unit }>;

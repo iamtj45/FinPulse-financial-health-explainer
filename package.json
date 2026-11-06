@@ -8,18 +8,15 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "build-kb-index": "tsx scripts/build-kb-index.ts",
-    "mcp": "tsx mcp/server.ts"
+    "build-kb-index": "tsx scripts/build-kb-index.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
     "gray-matter": "^4.0.3",
     "next": "16.3.0",
     "openai": "^7.4.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "yahoo-finance2": "^4.0.0",
-    "zod": "^4.4.3"
+    "yahoo-finance2": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^20",
