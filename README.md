@@ -1,5 +1,9 @@
 # FinPulse
 
+Live Link: https://fin-pulse-financial-health-explaine.vercel.app/
+
+
+
 A company financial health explainer. Enter a US-listed ticker and get the
 standard financial ratios liquidity, profitability, leverage, cash
 computed from real filings, a multi-year trend, and a plain-English
