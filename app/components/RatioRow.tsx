@@ -31,7 +31,7 @@ export function RatioRow({
           <>
             <span className={styles.value}>{formatRatioValue(ratio)}</span>
             <Sparkline years={ratio.years} />
-            <TrendArrow trend={ratio.trend} />
+            <TrendArrow trend={ratio.trend} direction={ratio.direction} />
           </>
         ) : (
           <span className={styles.unavailable}>

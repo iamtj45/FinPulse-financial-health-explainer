@@ -3,6 +3,8 @@ import type { StatementYear } from "./yahoo";
 export type Category = "liquidity" | "profitability" | "leverage" | "cash";
 export type Unit = "ratio" | "percent" | "currency";
 export type Trend = "improving" | "declining" | "stable" | "insufficient_data";
+/** Which way the number itself moved, with no judgement attached. */
+export type TrendDirection = "up" | "down" | "flat";
 export type YearStatus = "ok" | "unavailable" | "not_meaningful";
 
 export type RatioId =
@@ -33,7 +35,15 @@ export interface RatioResult {
   years: RatioYearValue[]; // chronological, oldest first
   latestValue: number | null;
   latestStatus: YearStatus;
+  /** Whether the company's position got healthier — NOT whether the number
+   * got bigger. See computeTrend. */
   trend: Trend;
+  /** Whether the number got bigger, independent of whether that was good
+   * news. Both are needed on screen: the sparkline plots raw values, so an
+   * arrow driven by `trend` alone contradicts it on any ratio where lower is
+   * healthier. The arrow follows this; the wording and colour follow
+   * `trend`. On debt-to-equity the two deliberately disagree. */
+  direction: TrendDirection;
 }
 
 /** Division guarded against a missing or zero denominator, per §5. */
@@ -255,14 +265,22 @@ const RATIO_DEFS: RatioDef[] = [
  * that.
  *
  * improving/declining still requires >5% movement between the earliest and
- * latest available (status 'ok') year; smaller movement reads as noise. */
-function computeTrend(years: RatioYearValue[], higherIsBetter: boolean): Trend {
+ * latest available (status 'ok') year; smaller movement reads as noise.
+ *
+ * Both readings are returned, because the screen needs both and they are not
+ * interchangeable. Collapsing them to the verdict alone is what put an up
+ * arrow next to a falling sparkline on debt-to-equity: paying down debt is
+ * "improving", so the arrow pointed up while the plotted line went down. */
+function computeTrend(
+  years: RatioYearValue[],
+  higherIsBetter: boolean,
+): { trend: Trend; direction: TrendDirection } {
   const ok = years.filter((y) => y.status === "ok" && y.value !== null);
-  if (ok.length < 2) return "insufficient_data";
+  if (ok.length < 2) return { trend: "insufficient_data", direction: "flat" };
   const first = ok[0].value as number;
   const last = ok[ok.length - 1].value as number;
 
-  let direction: "up" | "down" | "flat";
+  let direction: TrendDirection;
   if (first === 0) {
     direction = last === 0 ? "flat" : last > 0 ? "up" : "down";
   } else {
@@ -270,9 +288,9 @@ function computeTrend(years: RatioYearValue[], higherIsBetter: boolean): Trend {
     direction = pctChange > 5 ? "up" : pctChange < -5 ? "down" : "flat";
   }
 
-  if (direction === "flat") return "stable";
+  if (direction === "flat") return { trend: "stable", direction };
   const movedTheHealthyWay = direction === "up" ? higherIsBetter : !higherIsBetter;
-  return movedTheHealthyWay ? "improving" : "declining";
+  return { trend: movedTheHealthyWay ? "improving" : "declining", direction };
 }
 
 /** Computes every ratio in §5 across all available fiscal years.
@@ -285,6 +303,7 @@ export function computeRatios(years: StatementYear[]): RatioResult[] {
     });
 
     const latest = yearValues[yearValues.length - 1];
+    const { trend, direction } = computeTrend(yearValues, def.higherIsBetter ?? true);
 
     return {
       id: def.id,
@@ -294,7 +313,8 @@ export function computeRatios(years: StatementYear[]): RatioResult[] {
       years: yearValues,
       latestValue: latest?.value ?? null,
       latestStatus: latest?.status ?? "unavailable",
-      trend: computeTrend(yearValues, def.higherIsBetter ?? true),
+      trend,
+      direction,
     };
   });
 }

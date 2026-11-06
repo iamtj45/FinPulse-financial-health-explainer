@@ -258,6 +258,60 @@ describe("trend direction respects which way is healthy", () => {
   });
 });
 
+/** The on-screen arrow is drawn from `direction` and the wording from
+ * `trend`, because the sparkline next to them plots raw values. When the
+ * arrow was driven by `trend` alone it pointed up on a falling
+ * debt-to-equity — up arrow, downward line, same row. These two readings
+ * agreeing everywhere except debt-to-equity is the whole reason both are
+ * carried, so that disagreement is asserted rather than left implicit. */
+describe("raw direction is reported alongside the health verdict", () => {
+  const risingDebt = [
+    year({ fiscalYear: 2022, totalLiabilities: 400_000, totalEquity: 1_000_000 }), // 0.40
+    year({ fiscalYear: 2023, totalLiabilities: 1_800_000, totalEquity: 1_000_000 }), // 1.80
+  ];
+  const fallingDebt = [
+    year({ fiscalYear: 2022, totalLiabilities: 1_800_000, totalEquity: 1_000_000 }), // 1.80
+    year({ fiscalYear: 2023, totalLiabilities: 400_000, totalEquity: 1_000_000 }), // 0.40
+  ];
+
+  it("calls a falling debt-to-equity 'down' even though the verdict is 'improving'", () => {
+    const d = find(computeRatios(fallingDebt), "debt_to_equity");
+    expect(d.direction).toBe("down");
+    expect(d.trend).toBe("improving");
+  });
+
+  it("calls a rising debt-to-equity 'up' even though the verdict is 'declining'", () => {
+    const d = find(computeRatios(risingDebt), "debt_to_equity");
+    expect(d.direction).toBe("up");
+    expect(d.trend).toBe("declining");
+  });
+
+  it("has direction and verdict agree on a bigger-is-better ratio", () => {
+    const results = computeRatios([
+      year({ fiscalYear: 2022, currentAssets: 500_000, currentLiabilities: 500_000 }), // 1.0
+      year({ fiscalYear: 2023, currentAssets: 500_000, currentLiabilities: 400_000 }), // 1.25
+    ]);
+    const c = find(results, "current_ratio");
+    expect(c.direction).toBe("up");
+    expect(c.trend).toBe("improving");
+  });
+
+  it("is 'flat' when the value is stable", () => {
+    const results = computeRatios([
+      year({ fiscalYear: 2022, currentAssets: 500_000, currentLiabilities: 250_000 }), // 2.00
+      year({ fiscalYear: 2023, currentAssets: 505_000, currentLiabilities: 250_000 }), // 2.02
+    ]);
+    expect(find(results, "current_ratio").direction).toBe("flat");
+  });
+
+  it("is 'flat' when there isn't enough history to compare", () => {
+    const results = computeRatios([HEALTHY_YEAR]);
+    const c = find(results, "current_ratio");
+    expect(c.trend).toBe("insufficient_data");
+    expect(c.direction).toBe("flat");
+  });
+});
+
 describe("groupByCategory", () => {
   it("buckets all 11 ratios into their four categories", () => {
     const results = computeRatios([HEALTHY_YEAR]);

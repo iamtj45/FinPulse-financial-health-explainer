@@ -12,6 +12,18 @@
   font-weight: 400;
 }
 
+/* The arrow points the way the NUMBER moved; this colour is what says
+   whether that was good news. Both are needed, because on debt-to-equity a
+   downward arrow is the healthy one and the glyph alone can't convey that.
+   Reuses the verdict tokens, so dark mode follows for free. */
+.improving span[aria-hidden] {
+  color: var(--strong);
+}
+
+.declining span[aria-hidden] {
+  color: var(--weak);
+}
+
 .stable span[aria-hidden],
 .unknown span[aria-hidden] {
   color: var(--text-muted);

@@ -11,6 +11,7 @@ function ratio(overrides: Partial<RatioResult> & Pick<RatioResult, "id">): Ratio
     latestValue: null,
     latestStatus: "unavailable",
     trend: "insufficient_data",
+    direction: "flat",
     ...overrides,
   };
 }
